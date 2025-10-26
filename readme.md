@@ -53,3 +53,12 @@ MODEL_NAME=YOUR_MODEL_NAME
 The tool uses `prompt_template.txt` to modify prompt sending to models.
 
 
+## Version 1.0.1:
+
+- debugged errors in Dockerfile.
+- added error captures in func_annotator.py.
+- attached readme.md.
+- added cache files in .gitignore and .dockerignore.
+
+## Version 1.1.0:
+- added model performance record by intergrating mlflow & dagshub.

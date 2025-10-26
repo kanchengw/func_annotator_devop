@@ -1,40 +1,54 @@
 name: CI Pipeline with Pylint Scoring
 on:
   push:
-    branches: [main, dev,staging]
+    branches: [main, dev, staging]
   pull_request:
-    branches: [main, dev,staging]
+    branches: [main, dev, staging]
 
 jobs:
-  # 任务1：代码检查（Pylint 打分）
   lint:
     runs-on: ubuntu-latest
+    env:  
+      CI: "true"
+      API_KEY: ${{ secrets.API_KEY }}
+      API_URL: ${{ vars.API_URL }}
+      MODEL_NAME: ${{ vars.MODEL_NAME }}
+      MODEL_TEMPERATURE: ${{ vars.MODEL_TEMPERATURE }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: 安装依赖
+          python-version: "3.11"
+          cache: "pip"
+      - name: 安装Python依赖
         run: |
+          pip install --prefer-binary pyarrow==12.0.0
           pip install -r requirements.txt
           pip install pylint
-      - name: 运行 Pylint 代码检查（并输出打分）
+      - name: 运行Pylint检查
         run: pylint --score=y func_annotator.py test.py
 
-  # 任务2：运行单元测试
   tests:
     runs-on: ubuntu-latest
+    env:
+      API_KEY: ${{ secrets.API_KEY }}
+      API_URL: ${{ vars.API_URL }}
+      MODEL_NAME: ${{ vars.MODEL_NAME }}
+      MODEL_TEMPERATURE: ${{ vars.MODEL_TEMPERATURE }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: 安装依赖
-        run: pip install -r requirements.txt
-      - name: 运行 pytest 测试
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+      - name: 安装Python依赖
+        run: |
+          pip install --prefer-binary pyarrow==12.0.0
+          pip install -r requirements.txt
+      - name: 运行pytest测试
         run: pytest test.py -v
 
-  # 任务3：构建 Docker 镜像
   docker-build:
     needs: [lint, tests]
     runs-on: ubuntu-latest
@@ -49,3 +63,5 @@ jobs:
           dockerfile: Dockerfile
           push: false
           tags: func-annotator:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

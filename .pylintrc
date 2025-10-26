@@ -1,5 +1,5 @@
 [MASTER]
-# 扩展包白名单（为空表示允许所有）
+fail-under=8
 extension-pkg-whitelist=
 
 # 忽略的目录
