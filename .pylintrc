@@ -1,0 +1,70 @@
+[MASTER]
+fail-under=8
+extension-pkg-whitelist=
+
+# 忽略的目录
+ignore=__pycache__,venv,env,.git,pytest_cache
+
+[MESSAGES CONTROL]
+# 禁用一些严格或不常用的检查项，保持宽松的linting
+disable=
+    missing-module-docstring,    # 不要求模块文档字符串
+    missing-class-docstring,     # 不要求类文档字符串
+    missing-function-docstring,  # 不要求函数文档字符串
+    too-few-public-methods,      # 允许少量公共方法
+    too-many-arguments,          # 不限制参数数量
+    too-many-return-statements,  # 不限制return语句数量
+    too-many-branches,           # 不限制分支数量
+    too-many-locals,             # 不限制局部变量数量
+    too-many-statements,         # 不限制语句数量
+    too-many-instance-attributes, # 不限制实例属性数量
+    locally-disabled,            # 不警告局部禁用的检查
+    import-error,                # 不检查导入错误（可能由于lint环境问题）
+    no-member,                   # 不检查成员访问（可能由于动态特性）
+    fixme,                       # 允许TODO注释
+    consider-using-f-string,     # 允许使用%格式化或.format()
+    broad-except,                # 允许捕获所有异常
+    bare-except,                 # 允许裸except
+    broad-exception-caught,      # 允许捕获广泛异常
+
+[FORMAT]
+# 最大行长度（放宽到120）
+max-line-length=120
+
+# 缩进（4个空格）
+indent-string='    '
+
+[VARIABLES]
+# 允许的单字母变量名
+good-names=i,j,k,ex,Run,f,id
+
+[DESIGN]
+# 最小公共方法数
+min-public-methods=0
+
+# 最大参数数（设置较大值）
+max-args=15
+
+# 最大属性数
+max-attributes=20
+
+# 最大布尔表达式数量
+max-bool-expr=10
+
+# 最大分支数
+max-branches=20
+
+# 最大局部变量数
+max-locals=30
+
+# 最大父类数
+max-parents=10
+
+# 最大公共方法数
+max-public-methods=50
+
+# 最大返回语句数
+max-returns=15
+
+# 最大语句数
+max-statements=100

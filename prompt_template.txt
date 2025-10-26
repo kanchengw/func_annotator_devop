@@ -1,0 +1,11 @@
+Please generate annotation for the following Python function. The annotation must include 3 parts:
+1. Input: description of input parameters
+2. Processing: specific operation steps
+3. Output: description of return value
+
+Requirements:
+- Use English only
+- Use plain text format (no Markdown, no code blocks, no symbols like ```)
+- No extra content (no function code, no extra text)
+- Keep it concise
+{function_code}

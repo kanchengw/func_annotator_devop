@@ -1,0 +1,67 @@
+name: CI Pipeline with Pylint Scoring
+on:
+  push:
+    branches: [main, dev, staging]
+  pull_request:
+    branches: [main, dev, staging]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    env:  
+      CI: "true"
+      API_KEY: ${{ secrets.API_KEY }}
+      API_URL: ${{ vars.API_URL }}
+      MODEL_NAME: ${{ vars.MODEL_NAME }}
+      MODEL_TEMPERATURE: ${{ vars.MODEL_TEMPERATURE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: 安装Python依赖
+        run: |
+          pip install --prefer-binary pyarrow==12.0.0
+          pip install -r requirements.txt
+          pip install pylint
+      - name: 运行Pylint检查
+        run: pylint --score=y func_annotator.py test.py
+
+  tests:
+    runs-on: ubuntu-latest
+    env:
+      API_KEY: ${{ secrets.API_KEY }}
+      API_URL: ${{ vars.API_URL }}
+      MODEL_NAME: ${{ vars.MODEL_NAME }}
+      MODEL_TEMPERATURE: ${{ vars.MODEL_TEMPERATURE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+      - name: 安装Python依赖
+        run: |
+          pip install --prefer-binary pyarrow==12.0.0
+          pip install -r requirements.txt
+      - name: 运行pytest测试
+        run: pytest test.py -v
+
+  docker-build:
+    needs: [lint, tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          dockerfile: Dockerfile
+          push: false
+          tags: func-annotator:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
