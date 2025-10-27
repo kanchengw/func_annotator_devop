@@ -1,19 +1,13 @@
 name: CI Pipeline with Pylint Scoring
 on:
   push:
-    branches: [main, dev, staging]
+    branches: [main, dev, staging,feature/*]
   pull_request:
     branches: [main, dev, staging]
 
 jobs:
   lint:
     runs-on: ubuntu-latest
-    env:  
-      CI: "true"
-      API_KEY: ${{ secrets.API_KEY }}
-      API_URL: ${{ vars.API_URL }}
-      MODEL_NAME: ${{ vars.MODEL_NAME }}
-      MODEL_TEMPERATURE: ${{ vars.MODEL_TEMPERATURE }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
