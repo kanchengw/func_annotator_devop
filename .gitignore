@@ -3,7 +3,11 @@ __pycache__/
 *.pyc
 .pytest_cache/
 mlruns/
-
+# 原配置保持不变，新增以下内容
+app/__pycache__/
+app/.pytest_cache/
+tests/__pycache__/
+tests/.pytest_cache/
 # DVC
 .dvc/cache
 .dvc/tmp
