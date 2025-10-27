@@ -18,14 +18,19 @@ Func Annotator is a simple Python tool that generates natural language annotatio
    pip install -r requirements.txt
    ```
 
-2. **Run the annotator:**
+2. **Run the annotator** (interactive mode):
    ```
    python app/func_annotator.py
    ```
-
    Paste your function when prompted, end your input with 'end'(case ignored) in a new line to get result.
 
-3. **Run the test:**
+3. **Batch annotation** (process all function samples):
+   ```
+   python app/batch_annotator.py
+   ```
+   This will process all functions in `feedings/` and save annotated results to `outputs/`.
+
+4. **Run the test:**
    ```
    pytest tests/test.py
    ```
@@ -109,8 +114,6 @@ dvc diff
 - **function_sample2.py** - Text processing functions (20 functions)
   - String operations, text analysis, data formatting, encryption
 
-Configuration for these samples is in `config/function_samples.yaml`.
-
 ## Version 1.0.1:
 
 - debugged errors in Dockerfile.
@@ -126,5 +129,5 @@ Configuration for these samples is in `config/function_samples.yaml`.
 ## Version 1.2.0:
 - integrated DVC (Data Version Control) for managing function samples.
 - added version control for feedings/ function sample files.
-- added function sample configuration (config/function_samples.yaml).
-- reorganized project structure with docs/ and config/ directories.
+- reorganized project structure with docs/ directory.
+- added batch annotation script (app/batch_annotator.py) for processing multiple functions at once.
