@@ -1,10 +1,56 @@
+# 环境配置和密钥
 .env
+docker.env
+
+# DVC 配置（开发工具）
+.dvc/
+.dvcignore
+*.dvc
+dvc.yaml
+dvc.lock
+# Python 缓存和编译文件
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+app/test.py
+# 开发脚本（不包含在生产镜像中）
+app/batch_annotator.py
+# 原配置保持不变，新增以下内容
+app/__pycache__/
+app/.pytest_cache/
+tests/__pycache__/
+tests/.pytest_cache/
+# 测试相关
 .pytest_cache/
+.pytest_cache/
+pytest.ini
+coverage.xml
+htmlcov/
+
+# 样本数据和配置目录（不需要在生产镜像中）
+feedings/
+
+# Git 和版本控制
 .git/
-.gitignore
-*.md
 .github/
+.gitignore
+
+# 文档
+*.md
+docs/
+PROJECT_STRUCTURE.md
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 开发配置
 .pylintrc
-test.py
+.editorconfig
+
