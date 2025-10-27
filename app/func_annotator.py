@@ -13,8 +13,10 @@ load_dotenv(dotenv_path=env_path)
 
 
 def init_environment():
-    # 关键：加载挂载的 docker.env（容器内路径固定为 /app/config/docker.env）
+    """初始化环境配置，判断是否为Docker环境并加载环境变量"""
+    # 判断是否为Docker环境（通过常见的Docker环境变量或挂载的配置文件判断）
     mounted_env_path = "/app/config/docker.env"
+    is_docker = os.path.exists(mounted_env_path) or os.getenv("DOCKER_ENV") == "true"
     if os.path.exists(mounted_env_path):
         load_dotenv(dotenv_path=mounted_env_path)  # 优先加载挂载的配置文件
     env = {
@@ -22,10 +24,12 @@ def init_environment():
         "api_url": os.getenv("API_URL"),
         "model_name": os.getenv("MODEL_NAME"),
         "model_temperature": os.getenv("MODEL_TEMPERATURE"),
+        "is_docker": is_docker  # 增加Docker环境标识
     }
     if not all(env[key] for key in ["api_key", "api_url", "model_name"]):
         return None
-    if not os.getenv("CI"):
+    # 非CI且非Docker环境才初始化mlflow和dagshub
+    if not os.getenv("CI") and not is_docker:
         mlflow_tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
         mlflow_experiment = os.getenv("MLFLOW_EXPERIMENT")
         if mlflow_tracking_uri and mlflow_experiment:
@@ -55,12 +59,13 @@ def load_prompt_template():
             "3. Output: description of return value\n\n"
             "Requirements:\n"
             "- Use English only\n"
-            "- Plain text format (no Markdown/code blocks)\n"
+            "- Plain text format (no Markdown/code blocks s)\n"
             "- No extra content\n- Keep concise\n\n{function_code}"
         )
 
 
 def calculate_completeness(annotation: str) -> float:
+    """计算注释完整性（输入、处理、输出三部分的覆盖度）"""
     has_input = bool(re.search(r'input|parameters|param', annotation, re.IGNORECASE))
     has_processing = bool(re.search(r'processing|steps|operation|do', annotation, re.IGNORECASE))
     has_output = bool(re.search(r'output|return|result', annotation, re.IGNORECASE))
@@ -68,6 +73,7 @@ def calculate_completeness(annotation: str) -> float:
 
 
 def calculate_comment_density(annotation: str, function_code: str) -> float:
+    """计算注释密度（注释字符数/函数代码字符数）"""
     cleaned_annotation = re.sub(r'\s+', '', annotation)
     cleaned_annotation = re.sub(r'(.)\1+', r'\1', cleaned_annotation)
     function_valid_chars = re.sub(r'\s+', '', function_code)
@@ -77,6 +83,7 @@ def calculate_comment_density(annotation: str, function_code: str) -> float:
 
 
 def build_api_request(environment, prompt):
+    """构建API请求参数"""
     model_name = environment["model_name"].lower()
     base_params = {
         "url": environment["api_url"],
@@ -120,10 +127,11 @@ def build_api_request(environment, prompt):
 
 
 def generate_function_comment(function_code, environment):
+    """生成函数注释主逻辑"""
     error_occurred = False
     error_msg = ""
     latency = 0.0  # 初始化耗时变量，用于错误场景返回
-    # 2. 环境或输入校验错误
+    # 环境或输入校验错误
     if not environment:
         error_msg = "Problems in API settings, please check."
         error_occurred = True
@@ -136,19 +144,19 @@ def generate_function_comment(function_code, environment):
         if not request_params:
             error_msg = "Problems in API settings, please check."
             error_occurred = True
-    # 3. 错误场景：仅返回错误信息（日志由外层batch程序记录）
+    # 错误场景：仅返回错误信息
     if error_occurred:
         return error_msg
-    # 4. 正常请求API
+    # 正常请求API
     try:
         start_time = time.time()
-        response = requests.post(**request_params, timeout=30)
+        response = requests.post(** request_params, timeout=30)
         response.raise_for_status()
         latency = round(time.time() - start_time, 4)
-    except requests.exceptions.RequestException:  # 移除未使用的 exc 变量
-        # API请求错误：返回错误信息（日志由外层batch程序记录）
+    except requests.exceptions.RequestException:
+        # API请求错误：返回错误信息
         return "Problems in API connection, please check."
-    # 5. 解析API响应并生成注释
+    # 解析API响应并生成注释
     try:
         response_data = response.json()
         model_name = environment["model_name"].lower()
@@ -159,7 +167,7 @@ def generate_function_comment(function_code, environment):
             comment_content = response_data["choices"][0]["message"]["content"].strip()
         # 生成标准注释格式
         comment = f'"""\n{comment_content}\n"""'
-        # 返回注释+关键指标（供外层batch程序记录日志）
+        # 返回注释+关键指标
         return {
             "comment": comment,
             "metrics": {
@@ -169,12 +177,13 @@ def generate_function_comment(function_code, environment):
                 "comment_density": calculate_comment_density(comment_content, function_code)
             }
         }
-    except (KeyError, ValueError):  # 移除未使用的 exc 变量
-        # 响应解析错误：返回错误信息（日志由外层batch程序记录）
+    except (KeyError, ValueError):
+        # 响应解析错误：返回错误信息
         return "Problems in API response, please check."
 
 
 def main():
+    """主函数：接收用户输入并生成注释"""
     print("=== Function Comment Generator ===")
     print("1. Paste your Python function code (empty lines allowed)")
     print("2. Type 'END' on a new line and press Enter to finish input\n")
@@ -193,8 +202,8 @@ def main():
         print(result)
     elif isinstance(result, dict):
         print(result["comment"])
-        # 主函数单独运行时记录日志
-        if not os.getenv("CI"):
+        # 非CI且非Docker环境才记录日志
+        if not os.getenv("CI") and not env.get("is_docker"):
             with mlflow.start_run(run_name=f"{env['model_name']}_{function_code.split()[1].split('(')[0]}"):
                 mlflow.log_param("model", env["model_name"])
                 mlflow.log_param("temperature", env["model_temperature"])
@@ -207,8 +216,8 @@ def main():
                 mlflow.log_metric("success", 1)
     else:
         print(result)
-        # 主函数单独运行时记录错误日志
-        if not os.getenv("CI"):
+        # 非CI且非Docker环境才记录错误日志
+        if not os.getenv("CI") and not env.get("is_docker"):
             func_name = function_code.split()[1].split('(')[0] \
                 if function_code.strip().startswith("def ") else "unknown"
             with mlflow.start_run(run_name=f"{env['model_name']}_{func_name}_error"):
