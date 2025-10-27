@@ -1,13 +1,12 @@
 """生成Python函数注释的工具，集成API调用及实验跟踪功能
 """
 import os
+import re
+import time
 import requests
 import mlflow
 import dagshub
-import time
-import re
 from dotenv import load_dotenv
-
 
 env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
@@ -18,7 +17,6 @@ def init_environment():
     mounted_env_path = "/app/config/docker.env"
     if os.path.exists(mounted_env_path):
         load_dotenv(dotenv_path=mounted_env_path)  # 优先加载挂载的配置文件
-
     env = {
         "api_key": os.getenv("API_KEY"),
         "api_url": os.getenv("API_URL"),
@@ -61,11 +59,13 @@ def load_prompt_template():
             "- No extra content\n- Keep concise\n\n{function_code}"
         )
 
+
 def calculate_completeness(annotation: str) -> float:
     has_input = bool(re.search(r'input|parameters|param', annotation, re.IGNORECASE))
     has_processing = bool(re.search(r'processing|steps|operation|do', annotation, re.IGNORECASE))
     has_output = bool(re.search(r'output|return|result', annotation, re.IGNORECASE))
     return (has_input + has_processing + has_output) / 3
+
 
 def calculate_comment_density(annotation: str, function_code: str) -> float:
     cleaned_annotation = re.sub(r'\s+', '', annotation)
@@ -74,6 +74,7 @@ def calculate_comment_density(annotation: str, function_code: str) -> float:
     if len(function_valid_chars) == 0:
         return 0.0
     return round(len(cleaned_annotation) / len(function_valid_chars), 4)
+
 
 def build_api_request(environment, prompt):
     model_name = environment["model_name"].lower()
@@ -85,7 +86,7 @@ def build_api_request(environment, prompt):
         }
     }
     temperature = float(environment["model_temperature"])
-    
+
     if model_name.startswith("qwen"):
         return {
             **base_params,
@@ -98,7 +99,7 @@ def build_api_request(environment, prompt):
                 }
             }
         }
-    elif model_name.startswith("glm"):
+    if model_name.startswith("glm"):
         return {
             **base_params,
             "json": {
@@ -108,22 +109,21 @@ def build_api_request(environment, prompt):
                 "max_tokens": 1024
             }
         }
-    else:
-        return {
-            **base_params,
-            "json": {
-                "model": environment["model_name"],
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": temperature
-            }
+    return {
+        **base_params,
+        "json": {
+            "model": environment["model_name"],
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": temperature
         }
+    }
+
 
 def generate_function_comment(function_code, environment):
     error_occurred = False
     error_msg = ""
-    func_name = "unknown"
-    input_length = len(function_code.strip())
-    
+    latency = 0.0  # 初始化耗时变量，用于错误场景返回
+    # 2. 环境或输入校验错误
     if not environment:
         error_msg = "Problems in API settings, please check."
         error_occurred = True
@@ -131,80 +131,48 @@ def generate_function_comment(function_code, environment):
         error_msg = "Input must be a Python function starting with 'def'"
         error_occurred = True
     else:
-        func_name = function_code.split()[1].split('(')[0]
         prompt = load_prompt_template().replace("{function_code}", function_code)
         request_params = build_api_request(environment, prompt)
         if not request_params:
             error_msg = "Problems in API settings, please check."
             error_occurred = True
-
+    # 3. 错误场景：仅返回错误信息（日志由外层batch程序记录）
     if error_occurred:
-        if not os.getenv("CI"):
-            with mlflow.start_run(run_name=f"{environment['model_name']}_{func_name}_error"):
-                mlflow.log_param("model", environment["model_name"] if environment else "unknown")
-                mlflow.log_param("function_name", func_name)
-                mlflow.log_param("error", error_msg)
-                mlflow.log_metric("input_length", input_length)
-                mlflow.log_metric("error_rate", 1.0)
         return error_msg
-
+    # 4. 正常请求API
     try:
         start_time = time.time()
         response = requests.post(**request_params, timeout=30)
         response.raise_for_status()
         latency = round(time.time() - start_time, 4)
-    except requests.exceptions.RequestException as exc:
-        error_msg = f"API request failed: {str(exc)}"
-        if not os.getenv("CI"):
-            with mlflow.start_run(run_name=f"{environment['model_name']}_{func_name}_api_error"):
-                mlflow.log_param("model", environment["model_name"])
-                mlflow.log_param("function_name", func_name)
-                mlflow.log_param("error", error_msg)
-                mlflow.log_metric("input_length", input_length)
-                mlflow.log_metric("error_rate", 1.0)
+    except requests.exceptions.RequestException:  # 移除未使用的 exc 变量
+        # API请求错误：返回错误信息（日志由外层batch程序记录）
         return "Problems in API connection, please check."
-
+    # 5. 解析API响应并生成注释
     try:
         response_data = response.json()
         model_name = environment["model_name"].lower()
-        
+        # 根据模型类型解析响应
         if model_name.startswith("qwen"):
             comment_content = response_data["output"]["text"].strip()
         else:
             comment_content = response_data["choices"][0]["message"]["content"].strip()
-        
-        output_length = len(comment_content)
-        completeness = calculate_completeness(comment_content)
-        comment_density = calculate_comment_density(comment_content, function_code)
-        error_rate = 0.0
-
+        # 生成标准注释格式
         comment = f'"""\n{comment_content}\n"""'
-
-        if not os.getenv("CI"):
-            with mlflow.start_run(run_name=f"{environment['model_name']}_{func_name}"):
-                mlflow.log_param("model", environment["model_name"])
-                mlflow.log_param("temperature", environment["model_temperature"])
-                mlflow.log_param("function_name", func_name)
-                mlflow.log_metric("input_length", input_length)
-                mlflow.log_metric("output_length", output_length)
-                mlflow.log_metric("latency", latency)
-                mlflow.log_metric("completeness", completeness)
-                mlflow.log_metric("comment_density", comment_density)
-                mlflow.log_metric("error_rate", error_rate)
-                mlflow.log_text(comment_content, f"{func_name}_annotation.txt")
-                mlflow.log_text(function_code, f"{func_name}_input.txt")
-        
-        return comment
-    except (KeyError, ValueError) as exc:
-        error_msg = f"Invalid API response: {str(exc)}"
-        if not os.getenv("CI"):
-            with mlflow.start_run(run_name=f"{environment['model_name']}_{func_name}_response_error"):
-                mlflow.log_param("model", environment["model_name"])
-                mlflow.log_param("function_name", func_name)
-                mlflow.log_param("error", error_msg)
-                mlflow.log_metric("input_length", input_length)
-                mlflow.log_metric("error_rate", 1.0)
+        # 返回注释+关键指标（供外层batch程序记录日志）
+        return {
+            "comment": comment,
+            "metrics": {
+                "latency": latency,
+                "output_length": len(comment_content),
+                "completeness": calculate_completeness(comment_content),
+                "comment_density": calculate_comment_density(comment_content, function_code)
+            }
+        }
+    except (KeyError, ValueError):  # 移除未使用的 exc 变量
+        # 响应解析错误：返回错误信息（日志由外层batch程序记录）
         return "Problems in API response, please check."
+
 
 def main():
     print("=== Function Comment Generator ===")
@@ -219,7 +187,37 @@ def main():
     function_code = "\n".join(function_lines)
     env = init_environment()
     print("\nGenerated comment:")
-    print(generate_function_comment(function_code, env))
+    result = generate_function_comment(function_code, env)
+    # 主函数单独运行时，补充日志记录
+    if not env:
+        print(result)
+    elif isinstance(result, dict):
+        print(result["comment"])
+        # 主函数单独运行时记录日志
+        if not os.getenv("CI"):
+            with mlflow.start_run(run_name=f"{env['model_name']}_{function_code.split()[1].split('(')[0]}"):
+                mlflow.log_param("model", env["model_name"])
+                mlflow.log_param("temperature", env["model_temperature"])
+                mlflow.log_param("function_name", function_code.split()[1].split('(')[0])
+                mlflow.log_metric("input_length", len(function_code.strip()))
+                mlflow.log_metric("output_length", result["metrics"]["output_length"])
+                mlflow.log_metric("latency", result["metrics"]["latency"])
+                mlflow.log_metric("completeness", result["metrics"]["completeness"])
+                mlflow.log_metric("comment_density", result["metrics"]["comment_density"])
+                mlflow.log_metric("success", 1)
+    else:
+        print(result)
+        # 主函数单独运行时记录错误日志
+        if not os.getenv("CI"):
+            func_name = function_code.split()[1].split('(')[0] \
+                if function_code.strip().startswith("def ") else "unknown"
+            with mlflow.start_run(run_name=f"{env['model_name']}_{func_name}_error"):
+                mlflow.log_param("model", env["model_name"])
+                mlflow.log_param("function_name", func_name)
+                mlflow.log_param("error", result)
+                mlflow.log_metric("input_length", len(function_code.strip()))
+                mlflow.log_metric("error_rate", 1.0)
+
 
 if __name__ == "__main__":
     main()

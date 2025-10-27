@@ -20,7 +20,7 @@ jobs:
           pip install -r requirements.txt
           pip install pylint
       - name: 运行Pylint检查
-        run: pylint --score=y app/func_annotator.py tests/test.py  # 调整为app/和tests/路径
+        run: pylint --score=y app/func_annotator.py app/batch_annotator.py app/test.py
 
   tests:
     runs-on: ubuntu-latest
@@ -41,7 +41,7 @@ jobs:
           pip install --prefer-binary pyarrow==12.0.0
           pip install -r requirements.txt
       - name: 运行pytest测试
-        run: pytest tests/test.py -v  # 调整为tests/路径
+        run: pytest app/test.py -v
 
   docker-build:
     needs: [lint, tests]

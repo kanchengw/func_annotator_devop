@@ -1,5 +1,5 @@
 outs:
-- md5: 6bf1c9fbaef9ceb2b9923d5a30f147a1
-  size: 3192
+- md5: cfa9533aaa58a35653b7585082be4cd2
+  size: 382
   hash: md5
   path: function_sample1.py
