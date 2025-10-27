@@ -3,3 +3,10 @@ __pycache__/
 *.pyc
 .pytest_cache/
 mlruns/
+
+# DVC
+.dvc/cache
+.dvc/tmp
+.dvc/config.local
+.dvc/plots
+*.dvc.lock
