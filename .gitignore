@@ -10,3 +10,6 @@ mlruns/
 .dvc/config.local
 .dvc/plots
 *.dvc.lock
+
+# Outputs
+outputs/

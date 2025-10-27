@@ -5,7 +5,8 @@
 ```
 func_annotator_devop/
 ├── app/                        # Application code
-│   └── func_annotator.py      # Main application (function annotation tool)
+│   ├── func_annotator.py      # Main application (interactive mode)
+│   └── batch_annotator.py     # Batch processing script
 │
 ├── tests/                      # Test code
 │   └── test.py                # Unit tests
@@ -14,11 +15,10 @@ func_annotator_devop/
 │   ├── function_sample1.py    # Arithmetic and mathematical functions (20 functions)
 │   └── function_sample2.py   # Text processing functions (20 functions)
 │
-├── config/                     # Configuration files
-│   └── function_samples.yaml  # Function sample configuration
-│
 ├── docs/                       # Documentation
 │   └── readme.md              # Project documentation
+│
+├── outputs/                    # Generated annotated files
 │
 ├── Dockerfile                  # Docker build file
 ├── docker.env                  # Docker environment variables
@@ -27,7 +27,6 @@ func_annotator_devop/
 ├── .dvcignore                  # DVC ignore file
 ├── .pylintrc                   # Pylint configuration
 ├── requirements.txt            # Python dependencies
-├── dvc.yaml                    # DVC configuration
 └── prompt_template.txt         # Prompt template
 ```
 
@@ -35,7 +34,8 @@ func_annotator_devop/
 
 ### `app/` - Application Code
 - Contains core functionality: function comment generation, API calls, MLflow tracking
-- Main module: `func_annotator.py`
+- `func_annotator.py`: Interactive mode for single function annotation
+- `batch_annotator.py`: Batch processing script for multiple functions (development tool)
 
 ### `tests/` - Tests
 - Unit tests and integration tests
@@ -45,9 +45,6 @@ func_annotator_devop/
 - Function sample data, version controlled with DVC
 - `function_sample1.py`: Arithmetic and mathematical operations (20 functions)
 - `function_sample2.py`: Text processing (20 functions)
-
-### `config/` - Configuration
-- `function_samples.yaml`: Metadata and configuration for function samples
 
 ### `docs/` - Documentation
 - Project description, usage guide, version history
@@ -74,8 +71,11 @@ func_annotator_devop/
 # Install dependencies
 pip install -r requirements.txt
 
-# Run application
+# Run application (interactive mode)
 python app/func_annotator.py
+
+# Batch annotation (process all samples)
+python app/batch_annotator.py
 
 # Run tests
 pytest tests/test.py
