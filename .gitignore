@@ -14,6 +14,6 @@ tests/.pytest_cache/
 .dvc/config.local
 .dvc/plots
 *.dvc.lock
-
+feedings/function_sample1.py
 # Outputs
 outputs/
